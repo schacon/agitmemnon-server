@@ -1,0 +1,10 @@
+#!/usr/bin/python
+
+import sys
+from dulwich.server import TCPGitServer
+from dulwich.agitmemnon import *
+
+if __name__ == "__main__":
+    backend = AgitmemnonBackend()
+    server = TCPGitServer(backend, 'localhost')
+    server.serve_forever()

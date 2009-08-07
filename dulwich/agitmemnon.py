@@ -110,12 +110,13 @@ class Agitmemnon(BaseObjectStore):
     def get_refs(self):
         """Get dictionary with all refs."""
         ret = {}
-        refs = a.get_super('Repositories', 'fuzed')
-        ret['HEAD'] = 'refs/heads/master' # TODO: fix this
+        refs = self.get_super('Repositories', 'fuzed') # TODO: dont hardcode the repo
         for x in refs:
             for col in x.columns:
                 if len(col.value) == 40:
                     ret['refs/' + x.name + '/' + col.name] = col.value
+                    if x.name == 'heads' and col.name == 'master':
+                        ret['HEAD'] = col.value
         return ret
 
 class AgitmemnonBackend(Backend):
@@ -126,7 +127,7 @@ class AgitmemnonBackend(Backend):
         self.get_refs = self.repo.get_refs
 
 
-a = Agitmemnon()
+#a = Agitmemnon()
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')[0].value
-print a['7486f4075d2b9307d02e3905c69e28e456a51a32'].get_parents()
+#print a['7486f4075d2b9307d02e3905c69e28e456a51a32'].get_parents()
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')
