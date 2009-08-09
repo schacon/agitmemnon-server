@@ -109,8 +109,9 @@ class Agitmemnon(BaseObjectStore):
 
     def get_refs(self):
         """Get dictionary with all refs."""
+        print self.repo_name
         ret = {}
-        refs = self.get_super('Repositories', 'fuzed') # TODO: dont hardcode the repo
+        refs = self.get_super('Repositories', self.repo_name)
         for x in refs:
             for col in x.columns:
                 if len(col.value) == 40:
@@ -119,12 +120,21 @@ class Agitmemnon(BaseObjectStore):
                         ret['HEAD'] = col.value
         return ret
 
+    def set_args(self, args):
+        rname = args[0]
+        if rname[0] == '/':
+            rname = rname[1:len(rname)]
+        if rname.endswith('.git'):
+            rname = rname.replace('.git','')
+        self.repo_name = rname
+
 class AgitmemnonBackend(Backend):
 
     def __init__(self):
         self.repo = Agitmemnon()
         self.fetch_objects = self.repo.fetch_objects
         self.get_refs = self.repo.get_refs
+        self.set_args = self.repo.set_args
 
 
 #a = Agitmemnon()

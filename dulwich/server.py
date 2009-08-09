@@ -95,9 +95,10 @@ class GitBackend(Backend):
 class Handler(object):
     """Smart protocol command handler base class."""
 
-    def __init__(self, backend, read, write):
+    def __init__(self, backend, read, write, args):
         self.backend = backend
         self.proto = Protocol(read, write)
+        self.backend.set_args(args)
 
     def capabilities(self):
         return " ".join(self.default_capabilities())
@@ -231,8 +232,8 @@ class TCPGitRequestHandler(SocketServer.StreamRequestHandler):
             cls = ReceivePackHandler
         else:
             return
-
-        h = cls(self.server.backend, self.rfile.read, self.wfile.write)
+        
+        h = cls(self.server.backend, self.rfile.read, self.wfile.write, args)
         h.handle()
 
 
