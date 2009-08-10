@@ -50,6 +50,14 @@ class Agitmemnon(BaseObjectStore):
                                 count, consistency_level)
         return result
 
+    def get_value(self, column_family, key, column, consistency_level=1):
+        try:
+            result = self.client.get_column(self.keyspace, key, 
+                                ColumnPath(column_family, None, column), consistency_level)
+            return result.value
+        except:
+            return False
+
     def get_super(self, column, key, count=100, consistency_level=1):
         start = ''
         finish = ''
@@ -62,14 +70,18 @@ class Agitmemnon(BaseObjectStore):
     def get_object(self, sha):
         return self.get('Objects', sha)
 
+    def get_object_value(self, sha, column):
+        return self.get_value('Objects', sha, column)
 
+    # TODO: modify to only check cassandra for the key (maybe just look for the size)
     def __contains__(self, sha):
         """Check if the object with a particular SHA is present."""
-        if len(self.get_object(sha)) > 0:
+        if self.get_object_value(sha, 'size'):
             return True
         else:
             return False
 
+    # TODO: look for packfiles of objects, cache all items in packfile, pull from caches
     def __getitem__(self, name):
         o = self.get_object(name)
         data = ''
