@@ -108,7 +108,7 @@ class UploadPackHandler(Handler):
     """Protocol handler for uploading a pack to the server."""
 
     def default_capabilities(self):
-        return ("multi_ack", "side-band-64k", "thin-pack", "ofs-delta")
+        return ("multi_ack", "side-band-64k", "ofs-delta")
 
     def handle(self):
         def determine_wants(heads):

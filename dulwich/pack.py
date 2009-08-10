@@ -825,20 +825,26 @@ def write_pack_data(f, objects, num_objects, window=10):
     :param objects: List of objects to write (tuples with object and path)
     :return: List with (name, offset, crc32 checksum) entries, pack checksum
     """
+
+    # this gets a list of all the objects - actual backend walker calls here
     recency = list(objects)
+
     # FIXME: Somehow limit delta depth
     # FIXME: Make thin-pack optional (its not used when cloning a pack)
+
     # Build a list of objects ordered by the magic Linus heuristic
     # This helps us find good objects to diff against us
     magic = []
     for obj, path in recency:
         magic.append( (obj.type, path, 1, -len(obj.as_raw_string()), obj) )
     magic.sort()
+
     # Build a map of objects and their index in magic - so we can find preceeding objects
     # to diff against
     offs = {}
     for i in range(len(magic)):
         offs[magic[i][4]] = i
+
     # Write the pack
     entries = []
     f = SHA1Writer(f)
