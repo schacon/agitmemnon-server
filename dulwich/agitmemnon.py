@@ -34,6 +34,7 @@ class Agitmemnon(BaseObjectStore):
         host = '127.0.0.1'
         port = 9160
         self.keyspace = 'Agitmemnon'
+        self.memcache = {}
 
         socket = TSocket.TSocket(host, port)
         transport = TTransport.TBufferedTransport(socket)
@@ -73,7 +74,6 @@ class Agitmemnon(BaseObjectStore):
     def get_object_value(self, sha, column):
         return self.get_value('Objects', sha, column)
 
-    # TODO: modify to only check cassandra for the key (maybe just look for the size)
     def __contains__(self, sha):
         """Check if the object with a particular SHA is present."""
         if self.get_object_value(sha, 'size'):
@@ -83,6 +83,8 @@ class Agitmemnon(BaseObjectStore):
 
     # TODO: look for packfiles of objects, cache all items in packfile, pull from caches
     def __getitem__(self, name):
+        if name in self.memcache:
+            return self.memcache[name]
         o = self.get_object(name)
         data = ''
         otype = ''
@@ -93,6 +95,8 @@ class Agitmemnon(BaseObjectStore):
                 otype = col.value
         data = zlib.decompress(base64.b64decode(data))
         shafile = ShaFile.from_raw_string(type_num_map[otype], data)
+        if otype != BLOB_ID: # caching commit/tree/tag objects since they are hit twice
+            self.memcache[name] = shafile
         return shafile
 
 

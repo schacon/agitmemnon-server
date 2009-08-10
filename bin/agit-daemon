@@ -6,5 +6,5 @@ from dulwich.agitmemnon import *
 
 if __name__ == "__main__":
     backend = AgitmemnonBackend()
-    server = TCPGitServer(backend, 'localhost')
+    server = TCPGitServer(backend, '0.0.0.0')
     server.serve_forever()
