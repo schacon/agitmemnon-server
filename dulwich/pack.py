@@ -829,6 +829,15 @@ def write_pack_data(f, objects, num_objects, window=10, progress=None):
     if progress is None:
         progress = lambda x: None
 
+    # TODO: check for partial packfiles, send them to the client in full
+    # TODO: then, remove sent shas from the object iterator
+    count = 0
+    for sha, path in objects.itershas():
+        count = count + 1
+        progress("looking for cached data: %d.\r" % count)
+        print sha
+    progress("looking for cached data: %d.\n" % count)
+
     # this gets a list of all the objects - actual backend walker calls here
     count = 0
     recency = list()
