@@ -835,7 +835,6 @@ def write_pack_data(f, objects, num_objects, window=10, progress=None):
     for sha, path in objects.itershas():
         count = count + 1
         progress("looking for cached data: %d.\r" % count)
-        print sha
     progress("looking for cached data: %d.\n" % count)
 
     # this gets a list of all the objects - actual backend walker calls here
@@ -870,22 +869,8 @@ def write_pack_data(f, objects, num_objects, window=10, progress=None):
     f.write(struct.pack(">L", 2)) # Pack version
     f.write(struct.pack(">L", num_objects)) # Number of objects in pack
     for o, path in recency:
-        sha1 = o.sha().digest()
-        orig_t = o.type
-        raw = o.as_raw_string()
-        winner = raw
-        t = orig_t
-        #for i in range(offs[o]-window, window):
-        #    if i < 0 or i >= len(offs): continue
-        #    b = magic[i][4]
-        #    if b.type != orig_t: continue
-        #    base = b.as_raw_string()
-        #    delta = create_delta(base, raw)
-        #    if len(delta) < len(winner):
-        #        winner = delta
-        #        t = 6 if magic[i][2] == 1 else 7
-        offset, crc32 = write_pack_object(f, t, winner)
-        entries.append((sha1, offset, crc32))
+        offset, crc32 = write_pack_object(f, o.type, o.as_raw_string())
+        entries.append((o.sha().digest(), offset, crc32))
     return entries, f.write_sha()
 
 
