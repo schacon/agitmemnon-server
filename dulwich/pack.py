@@ -818,7 +818,7 @@ def write_pack(filename, objects, num_objects):
     write_pack_index_v2(filename + ".idx", entries, data_sum)
 
 
-def write_pack_data(f, objects, num_objects, window=10):
+def write_pack_data(f, objects, num_objects, window=10, progress=None):
     """Write a new pack file.
 
     :param filename: The filename of the new pack file.
@@ -826,8 +826,17 @@ def write_pack_data(f, objects, num_objects, window=10):
     :return: List with (name, offset, crc32 checksum) entries, pack checksum
     """
 
+    if progress is None:
+        progress = lambda x: None
+
     # this gets a list of all the objects - actual backend walker calls here
-    recency = list(objects)
+    count = 0
+    recency = list()
+    for a in objects:
+        count = count + 1
+        progress("fetching objects: %d.\r" % count)
+        recency.append(a)
+    progress("fetching objects: %d.\n" % count)
 
     # FIXME: Somehow limit delta depth
     # FIXME: Make thin-pack optional (its not used when cloning a pack)
