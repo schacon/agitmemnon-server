@@ -421,6 +421,9 @@ class ObjectStoreIterator(ObjectIterator):
         self.sha_iter = sha_iter
         self._shas = []
 
+    def remove_objects(self, objs):
+        print "FU"
+
     def __iter__(self):
         """Yield tuple with next object and path."""
         for sha, path in self.itershas():

@@ -818,7 +818,7 @@ def write_pack(filename, objects, num_objects):
     write_pack_index_v2(filename + ".idx", entries, data_sum)
 
 
-def write_pack_data(f, objects, num_objects, window=10, progress=None):
+def write_pack_data(f, objects, num_objects, window=10, progress=None, partial_sender=None):
     """Write a new pack file.
 
     :param filename: The filename of the new pack file.
@@ -829,46 +829,26 @@ def write_pack_data(f, objects, num_objects, window=10, progress=None):
     if progress is None:
         progress = lambda x: None
 
-    # TODO: check for partial packfiles, send them to the client in full
-    # TODO: then, remove sent shas from the object iterator
-    count = 0
-    for sha, path in objects.itershas():
-        count = count + 1
-        progress("looking for cached data: %d.\r" % count)
-    progress("looking for cached data: %d.\n" % count)
-
-    # this gets a list of all the objects - actual backend walker calls here
-    count = 0
-    recency = list()
-    for a in objects:
-        count = count + 1
-        progress("fetching objects: %d.\r" % count)
-        recency.append(a)
-    progress("fetching objects: %d.\n" % count)
-
-    # FIXME: Somehow limit delta depth
-    # FIXME: Make thin-pack optional (its not used when cloning a pack)
-
-    # Build a list of objects ordered by the magic Linus heuristic
-    # This helps us find good objects to diff against us
-    magic = []
-    for obj, path in recency:
-        magic.append( (obj.type, path, 1, -len(obj.as_raw_string()), obj) )
-    magic.sort()
-
-    # Build a map of objects and their index in magic - so we can find preceeding objects
-    # to diff against
-    offs = {}
-    for i in range(len(magic)):
-        offs[magic[i][4]] = i
-
     # Write the pack
     entries = []
     f = SHA1Writer(f)
     f.write("PACK")               # Pack header
     f.write(struct.pack(">L", 2)) # Pack version
     f.write(struct.pack(">L", num_objects)) # Number of objects in pack
-    for o, path in recency:
+
+    #if partial_sender && (num_objects > 500):
+    #    objs = partial_sender(objects, f, entries)
+    #    objects.remove_objects(objs)
+
+    # NOT NECCESARY - DEBUGGING
+    count = 0
+    for sha, path in objects.itershas():
+        count = count + 1
+        progress("looking for cached data: %d.\r" % count)
+    progress("looking for cached data: %d.\n" % count)
+    # END NOT NECCESARY
+
+    for o, path in objects:
         offset, crc32 = write_pack_object(f, o.type, o.as_raw_string())
         entries.append((o.sha().digest(), offset, crc32))
     return entries, f.write_sha()
