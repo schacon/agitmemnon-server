@@ -4,6 +4,7 @@ TODO
 * Implementation Fixes
    - add real HEAD reference
    - fetches hangup gracefully
+   - partial packfile cache usage
 
 * Multi-node Test Environment
    - multi-node project loading/updating
