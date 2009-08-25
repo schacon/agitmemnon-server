@@ -114,7 +114,6 @@ class Agitmemnon(BaseObjectStore):
         o = self.get_super('RevTree', self.repo_name, 100000)
         nilsha = '0000000000000000000000000000000000000000'
         for col in o:
-            print col.name
             self.revtree[col.name] = []
             for sup in col.columns:
                 objects = sup.value.split(":")
@@ -150,19 +149,33 @@ class Agitmemnon(BaseObjectStore):
     def partial_sender(self, objects, f, entries):
         # PackCacheIndex (projectname) [(cache_key) => (list of objects/offset/size), ...]
                 
-        objs = {}
+        sent = set()
+        objs = set()
         for sha, path in objects.itershas():
-            objs[sha] = true
+            objs.add(sha)
         
+        index = a.get('PackCacheIndex', self.repo_name)
+
         # parse cache_index entries, figure out what we need to pull
         # (which caches have enough objects that we need)
         # "sha:offset:size:base_sha\n"
-        
-        # pull each partial cache and send all the objects that are needed
-        # cache = self.get('PackCache', cache_key)
+        for cache in index:
+            # cache.name
+            cacheobjs = set()
+            entries = cache.value.split("\n")
+            if '' in entries:
+                entries.remove('')
+            for entry in entries:
+                (sha, offset, size, ref) = entry.split(":")
+                cacheobjs.add(sha)
+            if len(cacheobjs - objs) == 0:
+                # pull each partial cache and send all the objects that are needed
+                data = self.get_value('PackCache', cache.name, 'data')
+                data = base64.b64decode(data)
+                f.write(data)
+                sent = sent | cacheobjs # add each sent object to the sent[] array to return
 
-        # add each sent object to the sent[] array to return
-        # return the sent[] array
+        return sent # return the sent[] array
 
     def get_refs(self):
         """Get dictionary with all refs."""
@@ -228,10 +241,22 @@ class AgitmemnonBackend(Backend):
         self.partial_sender = self.repo.partial_sender
 
 
-#a = Agitmemnon()
+a = Agitmemnon()
 #a.repo_name = 'fuzed2'
 #a.load_next_revtree_hunk()
 #print a.revtree
+
+#index = a.get('PackCacheIndex', 'fuzed2')
+#myset = set()
+#for cache in index:
+#    print cache.name
+#    entries = cache.value.split("\n")
+#    if '' in entries:
+#        entries.remove('')
+#    for entry in entries:
+#        (sha, offset, size, ref) = entry.split(":")
+#        myset.add(sha)
+#    print myset
 
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')[0].value
 #print a['7486f4075d2b9307d02e3905c69e28e456a51a32'].get_parents()
