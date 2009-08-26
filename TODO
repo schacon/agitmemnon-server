@@ -6,6 +6,9 @@ TODO
    - fetches hangup gracefully
    - partial packfile cache usage
 
+* Update script
+   - check the current refs vs refs in Cassandra
+
 * Multi-node Test Environment
    - multi-node project loading/updating
    - benchmark clones
@@ -16,7 +19,7 @@ TODO
    - list of small, public projects to seed
 
 * Web UI
-   - check key/values in any of the kepspaces
+   - check key/values in any of the keyspaces
    - simple browsing UI
    - object API
 
