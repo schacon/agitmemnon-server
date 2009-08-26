@@ -2,7 +2,6 @@ TODO
 ===============
 
 * Implementation Fixes
-   - add real HEAD reference
    - fetches hangup gracefully
    - partial packfile cache usage
 

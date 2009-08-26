@@ -187,6 +187,9 @@ class Agitmemnon(BaseObjectStore):
                 if len(col.value) == 40:
                     ret['refs/' + x.name + '/' + col.name] = col.value
                     if x.name == 'heads' and col.name == 'master':
+                        if 'HEAD' not in ret:
+                            ret['HEAD'] = col.value
+                    if x.name == 'meta' and col.name == 'HEAD':
                         ret['HEAD'] = col.value
         return ret
 
