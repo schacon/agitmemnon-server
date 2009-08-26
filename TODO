@@ -1,12 +1,15 @@
 TODO
 ===============
 
-* Implementation Fixes
-   - fetches hangup gracefully
-   - partial packfile cache usage
+* Web UI
+   - check key/values in any of the keyspaces
+   - simple browsing UI
+   = object API
 
-* Update script
-   - check the current refs vs refs in Cassandra
+* Implementation Fixes
+   = fetches hangup gracefully
+   = partial packfile cache usage
+   - re-packcache removes old pack caches (at least the index entries)
 
 * Multi-node Test Environment
    - multi-node project loading/updating
@@ -16,11 +19,6 @@ TODO
      - install java, python
      - copy cassandra tarball, conf files, start running it (god?)
    - list of small, public projects to seed
-
-* Web UI
-   - check key/values in any of the keyspaces
-   - simple browsing UI
-   - object API
 
 * Updating System
    - seeding / updating population
