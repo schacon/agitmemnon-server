@@ -818,7 +818,7 @@ def write_pack(filename, objects, num_objects):
     write_pack_index_v2(filename + ".idx", entries, data_sum)
 
 
-def write_pack_data(f, objects, num_objects, window=10):
+def write_pack_data(f, objects, num_objects, window=10, progress=None, backend=None):
     """Write a new pack file.
 
     :param filename: The filename of the new pack file.
@@ -826,24 +826,8 @@ def write_pack_data(f, objects, num_objects, window=10):
     :return: List with (name, offset, crc32 checksum) entries, pack checksum
     """
 
-    # this gets a list of all the objects - actual backend walker calls here
-    recency = list(objects)
-
-    # FIXME: Somehow limit delta depth
-    # FIXME: Make thin-pack optional (its not used when cloning a pack)
-
-    # Build a list of objects ordered by the magic Linus heuristic
-    # This helps us find good objects to diff against us
-    magic = []
-    for obj, path in recency:
-        magic.append( (obj.type, path, 1, -len(obj.as_raw_string()), obj) )
-    magic.sort()
-
-    # Build a map of objects and their index in magic - so we can find preceeding objects
-    # to diff against
-    offs = {}
-    for i in range(len(magic)):
-        offs[magic[i][4]] = i
+    if progress is None:
+        progress = lambda x: None
 
     # Write the pack
     entries = []
@@ -851,23 +835,19 @@ def write_pack_data(f, objects, num_objects, window=10):
     f.write("PACK")               # Pack header
     f.write(struct.pack(">L", 2)) # Pack version
     f.write(struct.pack(">L", num_objects)) # Number of objects in pack
-    for o, path in recency:
-        sha1 = o.sha().digest()
-        orig_t = o.type
-        raw = o.as_raw_string()
-        winner = raw
-        t = orig_t
-        #for i in range(offs[o]-window, window):
-        #    if i < 0 or i >= len(offs): continue
-        #    b = magic[i][4]
-        #    if b.type != orig_t: continue
-        #    base = b.as_raw_string()
-        #    delta = create_delta(base, raw)
-        #    if len(delta) < len(winner):
-        #        winner = delta
-        #        t = 6 if magic[i][2] == 1 else 7
-        offset, crc32 = write_pack_object(f, t, winner)
-        entries.append((sha1, offset, crc32))
+
+    sent = set()
+    if backend and (num_objects > 500):
+        sent = backend.partial_sender(objects, f, entries)
+
+    shas = set()
+    for sha, path in objects.itershas():
+        shas.add(sha)
+    
+    for sha in (shas - sent):
+        o = backend.repo[sha]
+        offset, crc32 = write_pack_object(f, o.type, o.as_raw_string())
+        entries.append((o.sha().digest(), offset, crc32))
     return entries, f.write_sha()
 
 

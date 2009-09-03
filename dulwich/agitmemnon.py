@@ -35,7 +35,8 @@ class Agitmemnon(BaseObjectStore):
         port = 9160
         self.keyspace = 'Agitmemnon'
         self.memcache = {}
-
+        self.revtree = {}
+        
         socket = TSocket.TSocket(host, port)
         transport = TTransport.TBufferedTransport(socket)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
@@ -78,8 +79,6 @@ class Agitmemnon(BaseObjectStore):
             return False
 
     def __getitem__(self, name):
-        if name in self.memcache:
-            return self.memcache[name]
         o = self.get_object(name)
         data = ''
         otype = ''
@@ -90,11 +89,35 @@ class Agitmemnon(BaseObjectStore):
             if col.name == 'type':
                 otype = col.value
         data = zlib.decompress(base64.b64decode(data))
-        shafile = ShaFile.from_raw_string(type_num_map[otype], data)
-        if otype != BLOB_ID: # caching commit/tree/tag objects since they are hit twice
-            self.memcache[name] = shafile
-        return shafile
+        return ShaFile.from_raw_string(type_num_map[otype], data)
 
+    def get_revtree_objects(self, sha):
+        # check for entry in revtree cache
+        # if it's not there, pull another chunk, check there, loop
+        # return all the objects included in that commit
+        if sha in self.revtree:
+            return self.revtree[sha]
+        else:
+            self.load_next_revtree_hunk()
+            if sha in self.revtree:
+                return self.revtree[sha]
+            else:
+                return False
+    
+    def load_next_revtree_hunk(self):
+        if len(self.revtree) > 0: # hack
+            return False 
+        o = self.get_super('RevTree', self.repo_name, 100000)
+        nilsha = '0000000000000000000000000000000000000000'
+        for col in o:
+            self.revtree[col.name] = []
+            for sup in col.columns:
+                objects = sup.value.split(":")
+                if nilsha in objects:
+                    objects.remove(nilsha)
+                if '' in objects:
+                    objects.remove('')
+                self.revtree[col.name].extend(objects)
 
     def find_common_revisions(self, graphwalker):
         """Find which revisions this store has in common using graphwalker."""
@@ -108,7 +131,7 @@ class Agitmemnon(BaseObjectStore):
         return haves
 
     def find_missing_objects(self, haves, wants, progress=None):
-        return iter(MissingObjectFinder(self, haves, wants, progress).next, None)
+        return iter(AgitMissingObjectFinder(self, haves, wants, progress).next, None)
 
     def iter_shas(self, shas):
         """Iterate over the objects for the specified shas."""
@@ -119,6 +142,37 @@ class Agitmemnon(BaseObjectStore):
         haves = self.find_common_revisions(graph_walker)
         return self.iter_shas(self.find_missing_objects(haves, wants, progress))
 
+    def partial_sender(self, objects, f, entries):
+        # PackCacheIndex (projectname) [(cache_key) => (list of objects/offset/size), ...]
+                
+        sent = set()
+        objs = set()
+        for sha, path in objects.itershas():
+            objs.add(sha)
+        
+        index = a.get('PackCacheIndex', self.repo_name)
+
+        # parse cache_index entries, figure out what we need to pull
+        # (which caches have enough objects that we need)
+        # "sha:offset:size:base_sha\n"
+        for cache in index:
+            # cache.name
+            cacheobjs = set()
+            entries = cache.value.split("\n")
+            if '' in entries:
+                entries.remove('')
+            for entry in entries:
+                (sha, offset, size, ref) = entry.split(":")
+                cacheobjs.add(sha)
+            if len(cacheobjs - objs) == 0:
+                # pull each partial cache and send all the objects that are needed
+                data = self.get_value('PackCache', cache.name, 'data')
+                data = base64.b64decode(data)
+                f.write(data)
+                sent = sent | cacheobjs # add each sent object to the sent[] array to return
+
+        return sent # return the sent[] array
+
     def get_refs(self):
         """Get dictionary with all refs."""
         print self.repo_name
@@ -128,8 +182,12 @@ class Agitmemnon(BaseObjectStore):
             x = x.super_column
             for col in x.columns:
                 if len(col.value) == 40:
-                    ret['refs/' + x.name + '/' + col.name] = col.value
+                    if x.name != 'meta':
+                        ret['refs/' + x.name + '/' + col.name] = col.value
                     if x.name == 'heads' and col.name == 'master':
+                        if 'HEAD' not in ret:
+                            ret['HEAD'] = col.value
+                    if x.name == 'meta' and col.name == 'HEAD':
                         ret['HEAD'] = col.value
         return ret
 
@@ -141,6 +199,39 @@ class Agitmemnon(BaseObjectStore):
             rname = rname.replace('.git','')
         self.repo_name = rname
 
+class AgitMissingObjectFinder(object):
+    """Find the objects missing from another object store.
+
+    :param object_store: Object store containing at least all objects to be 
+        sent
+    :param haves: SHA1s of commits not to send (already present in target)
+    :param wants: SHA1s of commits to send
+    :param progress: Optional function to report progress to.
+    """
+
+    def __init__(self, object_store, haves, wants, progress=None):
+        self.sha_done = set(haves)
+        self.objects_to_send = set([w for w in wants if w not in haves])
+        self.object_store = object_store
+        if progress is None:
+            self.progress = lambda x: None
+        else:
+            self.progress = progress
+
+    def add_todo(self, entries):
+        self.objects_to_send.update([e for e in entries if not e in self.sha_done])
+
+    def next(self):
+        if not self.objects_to_send:
+            return None
+        sha = self.objects_to_send.pop()
+        obs = self.object_store.get_revtree_objects(sha)
+        if obs:
+            self.add_todo(obs)
+        self.sha_done.add(sha)
+        self.progress("counting objects: %d\r" % len(self.sha_done))
+        return (sha, sha) # sorry, hack
+        
 class AgitmemnonBackend(Backend):
 
     def __init__(self):
@@ -148,9 +239,26 @@ class AgitmemnonBackend(Backend):
         self.fetch_objects = self.repo.fetch_objects
         self.get_refs = self.repo.get_refs
         self.set_args = self.repo.set_args
+        self.partial_sender = self.repo.partial_sender
 
 
-#a = Agitmemnon()
+a = Agitmemnon()
+#a.repo_name = 'fuzed2'
+#a.load_next_revtree_hunk()
+#print a.revtree
+
+#index = a.get('PackCacheIndex', 'fuzed2')
+#myset = set()
+#for cache in index:
+#    print cache.name
+#    entries = cache.value.split("\n")
+#    if '' in entries:
+#        entries.remove('')
+#    for entry in entries:
+#        (sha, offset, size, ref) = entry.split(":")
+#        myset.add(sha)
+#    print myset
+
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')[0].value
 #print a['7486f4075d2b9307d02e3905c69e28e456a51a32'].get_parents()
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')

@@ -172,7 +172,7 @@ class UploadPackHandler(Handler):
         progress("counting objects: %d, done.\n" % len(objects_iter))
         progress("GitHub is collecting your data\n")
         write_pack_data(ProtocolFile(None, write), objects_iter, 
-                        len(objects_iter))
+                        len(objects_iter), 10, progress, self.backend)
         progress("Have a nice day!\n")
         # we are done
         self.proto.write("0000")

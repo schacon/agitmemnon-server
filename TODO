@@ -1,0 +1,36 @@
+TODO
+===============
+
+* Web UI
+   - check key/values in any of the keyspaces
+   - simple browsing UI
+   = object API
+
+* Implementation Fixes
+   = fetches hangup gracefully
+   = partial packfile cache usage
+   - re-packcache removes old pack caches (at least the index entries)
+
+* Multi-node Test Environment
+   - multi-node project loading/updating
+   - benchmark clones
+   - x.github.com
+   - quick node setup
+     - install java, python
+     - copy cassandra tarball, conf files, start running it (god?)
+   - list of small, public projects to seed
+
+* Updating System
+   - seeding / updating population
+     - new github api to get all public repos, last update time / since update time
+     - get new/updated repos (from feed)
+     - clone/fetch on claiming node
+     - run update script
+   - re-packcache occasionally
+   - keep clone/fetch stats (total time, how many packed/loose objects)
+
+* Large project support
+   - split large blobs in object space on insert
+   - if the client split up blobs, be able to reconstruct and pack them
+   - split long revtree entries
+   - reconstruct long revtree entries (possibly done)
