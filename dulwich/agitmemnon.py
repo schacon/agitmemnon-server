@@ -34,32 +34,29 @@ class Agitmemnon(BaseObjectStore):
         host = '127.0.0.1'
         port = 9160
         self.keyspace = 'Agitmemnon'
-        self.memcache = {}
         self.revtree = {}
-        
+
         socket = TSocket.TSocket(host, port)
         transport = TTransport.TBufferedTransport(socket)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         self.client = Cassandra.Client(protocol)
         transport.open()
 
-    def get(self, column, key, count=100, consistency_level=1):
-        sr = SliceRange(start="", finish="", reversed=False, count=count)
+    def get(self, column, key, vcount=100, consistency_level=1):
+        sr = SliceRange(start="", finish="", reversed=False, count=vcount)
         sp = SlicePredicate(slice_range=sr)
         result = self.client.get_slice(self.keyspace, key, ColumnParent(column),
                                 sp, consistency_level)
         return result
 
     def get_value(self, column_family, key, column, consistency_level=1):
-        try:
-            result = self.client.get_column(self.keyspace, key,
-                                ColumnPath(column_family, None, column), consistency_level)
-            return result.value
-        except:
-            return False
+        result = self.client.get(self.keyspace, key,
+                    ColumnPath(column_family, None, column), consistency_level)
+        return result.column.value
 
-    def get_super(self, column, key, count=100, consistency_level=1):
-        sr = SliceRange(start="", finish="", reversed=False, count=count)
+
+    def get_super(self, column, key, vcount=100, consistency_level=1):
+        sr = SliceRange(start="", finish="", reversed=False, count=vcount)
         sp = SlicePredicate(slice_range=sr)
         result = self.client.get_slice(self.keyspace, key, ColumnParent(column),
                                 sp, consistency_level)
@@ -103,13 +100,14 @@ class Agitmemnon(BaseObjectStore):
                 return self.revtree[sha]
             else:
                 return False
-    
+
     def load_next_revtree_hunk(self):
         if len(self.revtree) > 0: # hack
-            return False 
+            return False
         o = self.get_super('RevTree', self.repo_name, 100000)
         nilsha = '0000000000000000000000000000000000000000'
         for col in o:
+            col = col.super_column
             self.revtree[col.name] = []
             for sup in col.columns:
                 objects = sup.value.split(":")
@@ -144,19 +142,20 @@ class Agitmemnon(BaseObjectStore):
 
     def partial_sender(self, objects, f, entries):
         # PackCacheIndex (projectname) [(cache_key) => (list of objects/offset/size), ...]
-                
+
         sent = set()
         objs = set()
         for sha, path in objects.itershas():
             objs.add(sha)
-        
-        index = a.get('PackCacheIndex', self.repo_name)
+
+        index = self.get('PackCacheIndex', self.repo_name)
 
         # parse cache_index entries, figure out what we need to pull
         # (which caches have enough objects that we need)
         # "sha:offset:size:base_sha\n"
         for cache in index:
             # cache.name
+            cache = cache.column
             cacheobjs = set()
             entries = cache.value.split("\n")
             if '' in entries:
@@ -170,11 +169,11 @@ class Agitmemnon(BaseObjectStore):
                 data = base64.b64decode(data)
                 f.write(data)
                 sent = sent | cacheobjs # add each sent object to the sent[] array to return
-
         return sent # return the sent[] array
 
     def get_refs(self):
         """Get dictionary with all refs."""
+        self.revtree = {}
         print self.repo_name
         ret = {}
         refs = self.get_super('Repositories', self.repo_name)
@@ -202,7 +201,7 @@ class Agitmemnon(BaseObjectStore):
 class AgitMissingObjectFinder(object):
     """Find the objects missing from another object store.
 
-    :param object_store: Object store containing at least all objects to be 
+    :param object_store: Object store containing at least all objects to be
         sent
     :param haves: SHA1s of commits not to send (already present in target)
     :param wants: SHA1s of commits to send
@@ -231,7 +230,7 @@ class AgitMissingObjectFinder(object):
         self.sha_done.add(sha)
         self.progress("counting objects: %d\r" % len(self.sha_done))
         return (sha, sha) # sorry, hack
-        
+
 class AgitmemnonBackend(Backend):
 
     def __init__(self):
@@ -242,10 +241,9 @@ class AgitmemnonBackend(Backend):
         self.partial_sender = self.repo.partial_sender
 
 
-a = Agitmemnon()
-#a.repo_name = 'fuzed2'
+#a = Agitmemnon()
+#a.repo_name = 'mojombo/fuzed2'
 #a.load_next_revtree_hunk()
-#print a.revtree
 
 #index = a.get('PackCacheIndex', 'fuzed2')
 #myset = set()
