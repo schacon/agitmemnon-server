@@ -43,29 +43,25 @@ class Agitmemnon(BaseObjectStore):
         transport.open()
 
     def get(self, column, key, count=100, consistency_level=1):
-        start = ''
-        finish = ''
-        is_ascending = True
+        sr = SliceRange(start="", finish="", reversed=False, count=count)
+        sp = SlicePredicate(slice_range=sr)
         result = self.client.get_slice(self.keyspace, key, ColumnParent(column),
-                                start, finish, is_ascending, 
-                                count, consistency_level)
+                                sp, consistency_level)
         return result
 
     def get_value(self, column_family, key, column, consistency_level=1):
         try:
-            result = self.client.get_column(self.keyspace, key, 
+            result = self.client.get_column(self.keyspace, key,
                                 ColumnPath(column_family, None, column), consistency_level)
             return result.value
         except:
             return False
 
     def get_super(self, column, key, count=100, consistency_level=1):
-        start = ''
-        finish = ''
-        is_ascending = True
-        result = self.client.get_slice_super(self.keyspace, key, column, 
-                                start, finish, is_ascending, 
-                                count, consistency_level)
+        sr = SliceRange(start="", finish="", reversed=False, count=count)
+        sp = SlicePredicate(slice_range=sr)
+        result = self.client.get_slice(self.keyspace, key, ColumnParent(column),
+                                sp, consistency_level)
         return result
 
     def get_object(self, sha):
@@ -81,7 +77,6 @@ class Agitmemnon(BaseObjectStore):
         else:
             return False
 
-    # TODO: look for packfiles of objects, cache all items in packfile, pull from caches
     def __getitem__(self, name):
         if name in self.memcache:
             return self.memcache[name]
@@ -89,6 +84,7 @@ class Agitmemnon(BaseObjectStore):
         data = ''
         otype = ''
         for col in o:
+            col = col.column
             if col.name == 'data':
                 data = col.value
             if col.name == 'type':
@@ -129,6 +125,7 @@ class Agitmemnon(BaseObjectStore):
         ret = {}
         refs = self.get_super('Repositories', self.repo_name)
         for x in refs:
+            x = x.super_column
             for col in x.columns:
                 if len(col.value) == 40:
                     ret['refs/' + x.name + '/' + col.name] = col.value
@@ -157,3 +154,4 @@ class AgitmemnonBackend(Backend):
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')[0].value
 #print a['7486f4075d2b9307d02e3905c69e28e456a51a32'].get_parents()
 #print a.get_object('7486f4075d2b9307d02e3905c69e28e456a51a32')
+
