@@ -3,13 +3,12 @@ TODO
 
 * Web UI
    - check key/values in any of the keyspaces
-   - simple browsing UI
    = object API
 
 * Implementation Fixes
    = fetches hangup gracefully
    = partial packfile cache usage
-   - re-packcache removes old pack caches (at least the index entries)
+   - re-packcache removes old pack caches
 
 * Multi-node Test Environment
    - multi-node project loading/updating
@@ -34,3 +33,4 @@ TODO
    - if the client split up blobs, be able to reconstruct and pack them
    - split long revtree entries
    - reconstruct long revtree entries (possibly done)
+
