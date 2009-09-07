@@ -222,19 +222,22 @@ class ReceivePackHandler(Handler):
 class TCPGitRequestHandler(SocketServer.StreamRequestHandler):
 
     def handle(self):
-        proto = Protocol(self.rfile.read, self.wfile.write)
-        command, args = proto.read_cmd()
+	try:
+          proto = Protocol(self.rfile.read, self.wfile.write)
+          command, args = proto.read_cmd()
 
-        # switch case to handle the specific git command
-        if command == 'git-upload-pack':
-            cls = UploadPackHandler
-        elif command == 'git-receive-pack':
-            cls = ReceivePackHandler
-        else:
-            return
+          # switch case to handle the specific git command
+          if command == 'git-upload-pack':
+              cls = UploadPackHandler
+          elif command == 'git-receive-pack':
+              cls = ReceivePackHandler
+          else:
+              return
         
-        h = cls(self.server.backend, self.rfile.read, self.wfile.write, args)
-        h.handle()
+          h = cls(self.server.backend, self.rfile.read, self.wfile.write, args)
+          h.handle()
+        except:
+          pass
 
 
 class TCPGitServer(SocketServer.TCPServer):
